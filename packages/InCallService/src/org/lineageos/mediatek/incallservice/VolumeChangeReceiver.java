@@ -27,13 +27,7 @@ public class VolumeChangeReceiver extends BroadcastReceiver {
 
     private void handleVolumeStateChange(Intent intent) {
         if (intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, -1) == AudioManager.STREAM_VOICE_CALL) {
-            AudioDeviceInfo callDevice = mAudioManager.getCommunicationDevice();
-
-            int volumeIndex = intent.getIntExtra(AudioManager.EXTRA_VOLUME_STREAM_VALUE, -1);
-            if (volumeIndex == -1)
-                volumeIndex = mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
-
-            GainUtils.setGainLevel(callDevice.getPort().type(), volumeIndex, AudioSystem.STREAM_VOICE_CALL);
+            GainUtils.applyCurrentGain(mAudioManager);
         }
     }
 

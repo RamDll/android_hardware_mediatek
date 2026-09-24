@@ -25,7 +25,7 @@ public class CallStateListener extends TelephonyCallback implements TelephonyCal
     public void onCallStateChanged(int state) {
         if (state == TelephonyManager.CALL_STATE_OFFHOOK || state == TelephonyManager.CALL_STATE_RINGING) {
             Log.d(LOG_TAG, "CallStateListener: CALL_STATE_OFFHOOK, setting gain.");
-            GainUtils.setGainLevel(mAudioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL));
+            GainUtils.applyCurrentGain(mAudioManager);
         }
     }
 }
