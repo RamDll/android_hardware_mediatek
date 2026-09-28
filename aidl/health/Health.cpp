@@ -10,7 +10,9 @@
 #include <health-impl/Health.h>
 #include <health/utils.h>
 
+#include <android-base/file.h>
 #include <android-base/properties.h>
+#include <android-base/strings.h>
 
 #ifndef CHARGER_FORCE_NO_UI
 #define CHARGER_FORCE_NO_UI 0
@@ -46,13 +48,32 @@ class MediatekHealth : public Health {
             health_info->batteryChargeCounterUah < kMaxPlausibleMah) {
             health_info->batteryChargeCounterUah *= 1000;
         }
+        if (mStaticUsbMax && health_info->chargerUsbOnline && IsStandardUsbPort()) {
+            health_info->maxChargingCurrentMicroamps = kStandardUsbCurrentUa;
+            health_info->maxChargingVoltageMicrovolts = kStandardUsbVoltageUv;
+        }
     }
 
   private:
+    // Some charger drivers (e.g. Xiaomi hq_chg) report constant current_max/voltage_max for the
+    // usb supply whatever is plugged in, so a PC port looks like a 100+ W charger and the lock
+    // screen says "Charging rapidly". Opt in with ro.vendor.health.usb_max_is_static=true to
+    // report a standard USB port (type USB = SDP/CDP) as 500 mA at 5 V instead.
+    static bool IsStandardUsbPort() {
+        std::string type;
+        if (!::android::base::ReadFileToString(kUsbTypePath, &type)) return false;
+        return ::android::base::Trim(type) == "USB";
+    }
+
     // No phone battery holds 100 Ah; anything below this is a mAh value.
     static constexpr int32_t kMaxPlausibleMah = 100000;
+    static constexpr const char* kUsbTypePath = "/sys/class/power_supply/usb/type";
+    static constexpr int32_t kStandardUsbCurrentUa = 500000;
+    static constexpr int32_t kStandardUsbVoltageUv = 5000000;
     const bool mScaleChargeCounter =
             ::android::base::GetBoolProperty("ro.vendor.health.charge_counter_in_mah", false);
+    const bool mStaticUsbMax =
+            ::android::base::GetBoolProperty("ro.vendor.health.usb_max_is_static", false);
 };
 }  // namespace aidl::android::hardware::health
 static constexpr std::string_view gChargerArg{"--charger"};
