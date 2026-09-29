@@ -10,6 +10,8 @@
 #include <health-impl/Health.h>
 #include <health/utils.h>
 
+#include <algorithm>
+
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/strings.h>
@@ -40,6 +42,22 @@ namespace aidl::android::hardware::health {
 class MediatekHealth : public Health {
   public:
     using Health::Health;
+
+    // Settings' battery health screen shows batteryStateOfHealth, which the default implementation
+    // only reads from a power_supply state_of_health node. MTK fuel gauges don't have one (-> "0 %
+    // of original capacity") but do report the full charge and design capacities, so derive it.
+    ndk::ScopedAStatus getBatteryHealthData(BatteryHealthData* out) override {
+        auto status = Health::getBatteryHealthData(out);
+        if (!status.isOk() || out->batteryStateOfHealth > 0) return status;
+        HealthInfo info;
+        if (getHealthInfo(&info).isOk() && info.batteryFullChargeUah > 0 &&
+            info.batteryFullChargeDesignCapacityUah > 0) {
+            int64_t soh = static_cast<int64_t>(info.batteryFullChargeUah) * 100 /
+                          info.batteryFullChargeDesignCapacityUah;
+            out->batteryStateOfHealth = std::clamp<int64_t>(soh, 1, 100);
+        }
+        return status;
+    }
 
   protected:
     void UpdateHealthInfo(HealthInfo* health_info) override {
